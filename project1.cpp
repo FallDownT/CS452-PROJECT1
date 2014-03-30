@@ -6,19 +6,15 @@
 typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
-// Model-view and projection matrices uniform location
-GLuint  ModelView, Projection;
+// Model and view matrices uniform location
+GLuint  mvMatrix, pMatrix;
 
 // Create camera view variables
 point4 at( 0.0, 0.0, 0.0, 1.0 );
-point4 eye( 0.0, 0.0, 0.0, 1.0 );
+point4 eye( 1.0, 1.0, 1.0, 1.0 );
 vec4   up( 0.0, 10.0, 0.0, 0.0 );
 
-// Sperical Coordinate vector (r, theta, phi)
-vec3 sphericaleye( 4.0, M_PI/4.0, M_PI/4.0 ) ;
-
 GLfloat size=1;
-GLfloat norm=1/sqrt(3.0); // 1 / sqrt(1^2 + 1^2 + 1^2)
 
 GLfloat vertexarray[]={
 	size,size,-size,
@@ -31,15 +27,15 @@ GLfloat vertexarray[]={
 	-size,size,size
 };
 
-GLfloat normalarray[]={
-	norm,norm,-norm,
-	norm,-norm,-norm,
-	-norm,-norm,-norm,
-	-norm,norm,-norm,
-	norm,norm,norm,
-	norm,-norm,norm,
-	-norm,-norm,norm,
-	-norm,norm,norm
+GLfloat colorarray[]={
+	1.0f,1.0f,1.0f,1.0f,
+	1.0f,1.0f,1.0f,1.0f,
+	1.0f,1.0f,1.0f,1.0f,
+	1.0f,1.0f,1.0f,1.0f,
+	1.0f,1.0f,1.0f,1.0f,
+	1.0f,1.0f,1.0f,1.0f,
+	1.0f,1.0f,1.0f,1.0f,
+	1.0f,1.0f,1.0f,1.0f
 };
 											
 GLubyte elems[]={
@@ -61,84 +57,35 @@ init()
 	// Create Vertex and Normal buffer
 	glGenBuffers(1,&vbo);
 	glBindBuffer(GL_ARRAY_BUFFER,vbo);
-	glBufferData(GL_ARRAY_BUFFER,sizeof(vertexarray) + sizeof(normalarray),NULL,GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER,sizeof(vertexarray) + sizeof(colorarray),NULL,GL_STATIC_DRAW);
 	glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vertexarray),vertexarray);
-	glBufferSubData(GL_ARRAY_BUFFER,sizeof(vertexarray),sizeof(normalarray),normalarray);
+	glBufferSubData(GL_ARRAY_BUFFER,sizeof(vertexarray),sizeof(colorarray),colorarray);
 
     // Load shaders and use the resulting shader program
     GLuint program = InitShader( "vshader.glsl", "fshader.glsl" );
     glUseProgram( program );
 	
-    // set up vertex arrays
-	GLuint vPosition = glGetAttribLocation(program, "vPosition" );
-	glVertexAttribPointer(vPosition,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(0));
-    glEnableVertexAttribArray( vPosition );
+    // Set up vertex arrays
+	GLuint in_position = glGetAttribLocation(program, "in_position" );
+	glVertexAttribPointer(in_position,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(0));
+    glEnableVertexAttribArray( in_position );
 
-	GLuint vNormal = glGetAttribLocation(program, "vNormal" );
-	glVertexAttribPointer(vNormal,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(sizeof(vertexarray)));
-    glEnableVertexAttribArray( vNormal );
+	GLuint in_color = glGetAttribLocation(program, "in_color" );
+	glVertexAttribPointer(in_color,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(sizeof(vertexarray)));
+    glEnableVertexAttribArray( in_color );
 
 	// Create Element Array Buffer
 	glGenBuffers(1,&ebo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ebo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER,sizeof(elems),elems,GL_STATIC_DRAW);
-
-    // Initialize shader lighting parameters for light 1
-    point4 light_position1( 0.5, 1.0, -2.0, 0.0 );
-    color4 light_ambient1( 0.3, 0.2, 0.2, 1.0 );
-    color4 light_diffuse1( 0.9, 0.6, 0.6, 1.0 );
-    color4 light_specular1( 1.0, 0.6, 0.6, 1.0 );
-
-    // Initialize shader lighting parameters for light 2
-    point4 light_position2( -0.5, -1.0, 2.0, 0.0 );
-    color4 light_ambient2( 0.3, 0.2, 0.2, 1.0 );
-    color4 light_diffuse2( 0.9, 0.6, 0.6, 1.0 );
-    color4 light_specular2( 1.0, 0.6, 0.6, 1.0 );
-
-    // Initialize shader material parameters for cube
-    color4 material_ambient( 0.4, 0.25, 0.1, 1.0 );
-    color4 material_diffuse( 0.8, 0.5, 0.2, 1.0 );
-    color4 material_specular( 0.8, 0.8, 0.8, 1.0 );
-    float  material_shininess = 16.0;
-
-    color4 ambient_product1 = (light_ambient1) * material_ambient;
-    color4 diffuse_product1 = (light_diffuse1) * material_diffuse;
-    color4 specular_product1 = (light_specular1) * material_specular;
-
-    color4 ambient_product2 = (light_ambient2) * material_ambient;
-    color4 diffuse_product2 = (light_diffuse2) * material_diffuse;
-    color4 specular_product2 = (light_specular2) * material_specular;
-
-    glUniform4fv( glGetUniformLocation(program, "AmbientProduct1"),
-		  1, ambient_product1 );
-    glUniform4fv( glGetUniformLocation(program, "AmbientProduct2"),
-		  1, ambient_product2 );
-
-    glUniform4fv( glGetUniformLocation(program, "DiffuseProduct1"),
-		  1, diffuse_product1 );
-    glUniform4fv( glGetUniformLocation(program, "DiffuseProduct2"),
-		  1, diffuse_product2 );
-
-    glUniform4fv( glGetUniformLocation(program, "SpecularProduct1"),
-		  1, specular_product1 );
-    glUniform4fv( glGetUniformLocation(program, "SpecularProduct2"),
-		  1, specular_product2 );
-	
-    glUniform4fv( glGetUniformLocation(program, "LightPosition1"),
-		  1, light_position1 );
-    glUniform4fv( glGetUniformLocation(program, "LightPosition2"),
-		  1, light_position2 );
-
-    glUniform1f( glGetUniformLocation(program, "Shininess"),
-		 material_shininess );
 		 
     // Retrieve transformation uniform variable locations
-    ModelView = glGetUniformLocation( program, "ModelView" );
-    Projection = glGetUniformLocation( program, "Projection" );
+    mvMatrix = glGetUniformLocation( program, "modelViewMatrix" );
+    pMatrix = glGetUniformLocation( program, "projectionMatrix" );
     
     glEnable( GL_DEPTH_TEST );
     
-    glClearColor( 1.0, 1.0, 1.0, 1.0 ); /* white background */
+    glClearColor( 0.2, 0.6, 0.8, 1.0 ); /* sky blue background */
 }
 
 //----------------------------------------------------------------------------
@@ -149,15 +96,9 @@ display( void )
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	// Create new eye vector from sphericaleye vector
-	eye.z = sphericaleye.x * cos(sphericaleye.y) * sin(sphericaleye.z);
-	eye.x = sphericaleye.x * sin(sphericaleye.y) * sin(sphericaleye.z);
-	eye.y = sphericaleye.x * cos(sphericaleye.z);
 
-	std::cout << "Eye: (" << eye.x << "," << eye.y << "," << eye.z << ")  \t";
-	std::cout << "Spherical Eye: (" << sphericaleye.x << "," << sphericaleye.y << "," << sphericaleye.z << ")" << std::endl;
-
-    mat4 model_view = LookAt( eye, at, up );
-    glUniformMatrix4fv( ModelView, 1, GL_TRUE, model_view );
+    mat4 modelView = LookAt( eye, at, up );
+    glUniformMatrix4fv( mvMatrix, 1, GL_TRUE, modelView );
 
     glDrawElements( GL_TRIANGLE_STRIP,sizeof(elems),GL_UNSIGNED_BYTE,NULL);
     glutSwapBuffers();
@@ -172,18 +113,6 @@ keyboard( unsigned char key, int x, int y )
 		case 033: // Escape Key
 		case 'q': case 'Q':
 			exit( EXIT_SUCCESS );
-			break;
-		case 'w': case 'W':
-			sphericaleye.z+=M_PI/64.0;
-			break;
-		case 'a': case 'A':
-			sphericaleye.y-=M_PI/64.0;
-			break;
-		case 's': case 'S':
-			sphericaleye.z-=M_PI/64.0;
-			break;
-		case 'd': case 'D':
-			sphericaleye.y+=M_PI/64.0;
 			break;
     }
 	glutPostRedisplay();
@@ -211,7 +140,7 @@ reshape( int width, int height )
     }
 
     mat4 projection = Ortho( left, right, bottom, top, zNear, zFar );
-    glUniformMatrix4fv( Projection, 1, GL_TRUE, projection );
+    glUniformMatrix4fv( pMatrix, 1, GL_TRUE, projection );
 }
 
 //----------------------------------------------------------------------------
