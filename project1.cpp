@@ -7,11 +7,11 @@ typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
 // Model and view matrices uniform location
-GLuint  mvMatrix, pMatrix;
+GLuint  mMatrix, vMatrix, pMatrix;
 
 // Create camera view variables
 point4 at( 0.0, 0.0, 0.0, 1.0 );
-point4 eye( 1.0, 1.0, 1.0, 1.0 );
+point4 eye( 0.0, 0.0, 5.0, 1.0 );
 vec4   up( 0.0, 10.0, 0.0, 0.0 );
 
 GLfloat size=1;
@@ -80,12 +80,13 @@ init()
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER,sizeof(elems),elems,GL_STATIC_DRAW);
 		 
     // Retrieve transformation uniform variable locations
-    mvMatrix = glGetUniformLocation( program, "modelViewMatrix" );
+    mMatrix = glGetUniformLocation( program, "modelMatrix" );
+    vMatrix = glGetUniformLocation( program, "viewMatrix" );
     pMatrix = glGetUniformLocation( program, "projectionMatrix" );
     
     glEnable( GL_DEPTH_TEST );
     
-    glClearColor( 0.2, 0.6, 0.8, 1.0 ); /* sky blue background */
+    glClearColor( 0.2, 0.6, 0.8, 1.0 ); // sky blue background 
 }
 
 //----------------------------------------------------------------------------
@@ -95,10 +96,12 @@ display( void )
 {
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	// Create new eye vector from sphericaleye vector
+	// Transform model, view and/or projection matrices here
+	mat4 model(1.0f);
+    glUniformMatrix4fv( mMatrix, 1, GL_TRUE, model );
 
-    mat4 modelView = LookAt( eye, at, up );
-    glUniformMatrix4fv( mvMatrix, 1, GL_TRUE, modelView );
+    mat4 view = LookAt( eye, at, up );
+    glUniformMatrix4fv( vMatrix, 1, GL_TRUE, view );
 
     glDrawElements( GL_TRIANGLE_STRIP,sizeof(elems),GL_UNSIGNED_BYTE,NULL);
     glutSwapBuffers();
@@ -125,8 +128,8 @@ reshape( int width, int height )
 {
     glViewport( 0, 0, width, height );
 
-    GLfloat left = -2.0, right = 2.0;
-    GLfloat top = 2.0, bottom = -2.0;
+    GLfloat left = -5.0, right = 15.0;
+    GLfloat top = 15.0, bottom = -5.0;
     GLfloat zNear = -20.0, zFar = 20.0;
 
     GLfloat aspect = GLfloat(width)/height;
@@ -151,7 +154,7 @@ main( int argc, char **argv )
 
     glutInit( &argc, argv );
     glutInitDisplayMode( GLUT_RGBA | GLUT_DEPTH );
-    glutInitWindowSize( 512, 512 );
+    glutInitWindowSize( 1024, 768 );
     glutInitContextVersion( 2, 1 );
     glutInitContextProfile( GLUT_CORE_PROFILE );
     glutCreateWindow( "Beamer's Crew - Project 1" );
