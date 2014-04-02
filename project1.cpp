@@ -14,7 +14,7 @@ GLuint vao1, vao2, ebo1, ebo2;
 
 // Create camera view variables
 point4 at( 0.0, 0.0, 0.0, 1.0 );
-point4 eye( 0.0, 0.0, 5.0, 1.0 );
+point4 eye( 0.0, 0.0, 2.0, 1.0 );
 vec4   up( 0.0, 10.0, 0.0, 0.0 );
 
 GLfloat size=1;
@@ -30,10 +30,11 @@ GLfloat positionArray[]={
 	-size,-size,size,
 	-size,size,size,
 
-	// Triangle
-	4,-1,0,
-	6,-1,0,
-	5,1,0
+	// Tetrahedron
+	4.0,-1.0,1.06,
+	6.45,-1.0,1.06,
+	5.225,1.0,0.0,
+	5.225,-1.0,-1.06
 };
 
 GLfloat colorArray[]={
@@ -47,10 +48,11 @@ GLfloat colorArray[]={
 	1.0f,1.0f,1.0f,1.0f,
 	1.0f,1.0f,1.0f,1.0f,
 
-	// Triangle
+	// Tetrahedron
 	1.0f,1.0f,0.0f,1.0f,
-	1.0f,0.0f,1.0f,1.0f,
-	0.0f,1.0f,1.0f,1.0f
+	0.0f,0.0f,0.0f,1.0f,
+	0.0f,1.0f,1.0f,1.0f,
+	1.0f,0.0f,1.0f,1.0f
 };
 											
 GLubyte cubeElemsArray[]={
@@ -58,7 +60,7 @@ GLubyte cubeElemsArray[]={
 };
 											
 GLubyte triElemsArray[]={
-	0,1,2
+	0,1,2,3,0,1
 };
 
 // Constants
