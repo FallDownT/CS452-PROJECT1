@@ -42,13 +42,17 @@ GLuint  mMatrix, vMatrix, pMatrix;
 // Define global vaos and ebos
 GLuint vao1, vao2, vao3, ebo1, ebo2, ebo3;
 
+// Define programs
+GLuint programP1, programP2, programB;
+
+// Define model matrices
+mat4 modelP1, modelP2, modelB;
+
 
 // Create camera view variables
 point4 at( 0.0, 0.0, 0.0, 1.0 );
 point4 eye( 0.0, 0.0, 5.0, 1.0 );
 vec4   up( 0.0, 10.0, 0.0, 0.0 );
-
-GLfloat size=1;
 
 GLfloat positionArray[]={
 	// Paddle
@@ -58,10 +62,10 @@ GLfloat positionArray[]={
 	0.5,-3.0,0.0,
 
 	// Ball
-	-0.5+5,-0.5,0.0,
-	-0.5+5,0.5,0.0,
-	0.5+5,0.5,0.0,
-	0.5+5,-0.5,0.0
+	-0.5,-0.5,0.0,
+	-0.5,0.5,0.0,
+	0.5,0.5,0.0,
+	0.5,-0.5,0.0
 };
 
 GLfloat colorArray[]={
@@ -97,8 +101,9 @@ GLuint NumVerticies = 4;
 void init()
 {
     // Load shaders and use the resulting shader program
-    GLuint program = InitShader( "vshader.glsl", "fshader.glsl" );
-    glUseProgram( program );
+    programP1 = InitShader( "vshaderP1.glsl", "fshader.glsl" );
+    programP2 = InitShader( "vshaderP2.glsl", "fshader.glsl" );
+    programB = InitShader( "vshaderB.glsl", "fshader.glsl" );
 
 	// Define data members
     GLuint vbo;
@@ -110,6 +115,9 @@ void init()
 	// Define offsets and sizes
 	posDataOffset = 0;
 	colorDataOffset = sizeof(positionArray);
+
+	// Use programP1
+    glUseProgram( programP1 );
 
     // Generate and bind new vertex array object
     glGenVertexArrays( 1,&vao1 );
@@ -123,12 +131,12 @@ void init()
 	glBufferSubData( GL_ARRAY_BUFFER,colorDataOffset,sizeof(colorArray),colorArray );
 
 	// Bind position attribute of vbo
-	GLuint in_position = glGetAttribLocation( program, "in_position" );
+	GLuint in_position = glGetAttribLocation( programP1, "in_position" );
 	glVertexAttribPointer( in_position,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(posDataOffset) );
     glEnableVertexAttribArray( in_position );
 
 	// Bind color attribute of vbo
-	GLuint in_color = glGetAttribLocation( program, "in_color" );
+	GLuint in_color = glGetAttribLocation( programP1, "in_color" );
 	glVertexAttribPointer( in_color,4,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(colorDataOffset) );
     glEnableVertexAttribArray( in_color );
 
@@ -137,8 +145,9 @@ void init()
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER,ebo1 );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER,sizeof(elemsArray),elemsArray,GL_STATIC_DRAW );
 
-	// Release bind to vao1
+	// Release bind to vao1 and programP1
 	glBindVertexArray( 0 );
+	glUseProgram( 0 );
 	// --------------------------------------------------------------
 
 	// --------------------------------------------------------------
@@ -147,6 +156,9 @@ void init()
 	// Define new offsets
 	posDataOffset += 0;	// Duplicating last paddle
 	colorDataOffset += sizeof(GLfloat) * 4 * NumVerticies;	// Different color
+
+	// Use programP2
+    glUseProgram( programP2 );
 
     // Generate new vertex array object
     glGenVertexArrays( 1,&vao2 );
@@ -167,8 +179,9 @@ void init()
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER,ebo2 );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER,sizeof(elemsArray),elemsArray,GL_STATIC_DRAW );
 
-	// Release bind to vao2
+	// Release bind to vao2 and programP2
 	glBindVertexArray( 0 );
+	glUseProgram( 0 );
 	// --------------------------------------------------------------
 
 	// --------------------------------------------------------------
@@ -177,6 +190,9 @@ void init()
 	// Define new offsets
 	posDataOffset += sizeof(GLfloat) * 3 * NumVerticies;
 	colorDataOffset += sizeof(GLfloat) * 4 * NumVerticies;
+
+	// Use programB
+    glUseProgram( programB );
 
     // Generate new vertex array object
     glGenVertexArrays( 1,&vao3 );
@@ -197,14 +213,20 @@ void init()
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER,ebo3 );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER,sizeof(elemsArray),elemsArray,GL_STATIC_DRAW );
 
-	// Release bind to vao3
+	// Release bind to vao3 and programB
 	glBindVertexArray( 0 );
+	glUseProgram( 0 );
 	// --------------------------------------------------------------
 
     // Retrieve transformation uniform variable locations
-    mMatrix = glGetUniformLocation( program, "modelMatrix" );
-    vMatrix = glGetUniformLocation( program, "viewMatrix" );
-    pMatrix = glGetUniformLocation( program, "projectionMatrix" );
+    mMatrix = glGetUniformLocation( programP1, "modelMatrix" );
+    vMatrix = glGetUniformLocation( programP1, "viewMatrix" );
+    pMatrix = glGetUniformLocation( programP1, "projectionMatrix" );
+
+	// Initialize model matrices to their correct positions
+	modelP1 = modelP2 = modelB = identity();
+	modelP1 = modelP1 * Translate(-10.0,0.0,0.0);
+	modelP2 = modelP2 * Translate(10.0,0.0,0.0);
     
     glEnable( GL_DEPTH_TEST );
     
@@ -216,27 +238,39 @@ void init()
 void display( SDL_Window* screen ){
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	// Transform model, view and/or projection matrices here
-	mat4 model(1.0f);
-    glUniformMatrix4fv( mMatrix, 1, GL_TRUE, model );
-
+	// Define view
     mat4 view = LookAt( eye, at, up );
-    glUniformMatrix4fv( vMatrix, 1, GL_TRUE, view );
 
 	// Draw elements of vao1
+	glUseProgram( programP1 );
 	glBindVertexArray( vao1 );
+    glUniformMatrix4fv( mMatrix, 1, GL_TRUE, modelP1 );
+    glUniformMatrix4fv( vMatrix, 1, GL_TRUE, view );
     glDrawElements( GL_TRIANGLE_FAN,sizeof(elemsArray),GL_UNSIGNED_BYTE,0 );
+	glBindVertexArray( 0 );
+	glUseProgram( 0 );
 
 	// Draw elements of vao2
+	glUseProgram( programP2 );
 	glBindVertexArray( vao2 );
+    glUniformMatrix4fv( mMatrix, 1, GL_TRUE, modelP2 );
+    glUniformMatrix4fv( vMatrix, 1, GL_TRUE, view );
     glDrawElements( GL_TRIANGLE_FAN,sizeof(elemsArray),GL_UNSIGNED_BYTE,0 );
+	glBindVertexArray( 0 );
+	glUseProgram( 0 );
 
 	// Draw elements of vao3
+	glUseProgram( programB );
 	glBindVertexArray( vao3 );
+    glUniformMatrix4fv( mMatrix, 1, GL_TRUE, modelB );
+    glUniformMatrix4fv( vMatrix, 1, GL_TRUE, view );
     glDrawElements( GL_TRIANGLE_FAN,sizeof(elemsArray),GL_UNSIGNED_BYTE,0 );
-
-	// Release vao binds and swap buffers
 	glBindVertexArray( 0 );
+	glUseProgram( 0 );
+
+	// Release binds and swap buffers
+	glBindVertexArray( 0 );
+	glUseProgram( 0 );
     glFlush();
 	SDL_GL_SwapWindow(screen);
 }
@@ -370,7 +404,17 @@ reshape( int width, int height )
     }
 
     mat4 projection = Ortho( left, right, bottom, top, zNear, zFar );
+
+	// Bind new projection to each program
+	glUseProgram( programP1 );
     glUniformMatrix4fv( pMatrix, 1, GL_TRUE, projection );
+
+	glUseProgram( programP2 );
+    glUniformMatrix4fv( pMatrix, 1, GL_TRUE, projection );
+
+	glUseProgram( programB );
+    glUniformMatrix4fv( pMatrix, 1, GL_TRUE, projection );
+	glUseProgram( 0 );
 }
 
 void updatePositions(collisionInfo collision){
@@ -454,7 +498,7 @@ int main( int argc, char **argv )
 			
 		std::chrono::milliseconds dura(sleepTime);
 		std::this_thread::sleep_for(dura);
-		std::cout<<"slept for "<<sleepTime<<" ms.\n";
+		//std::cout<<"slept for "<<sleepTime<<" ms.\n";
 	}
 
 	SDL_GL_DeleteContext(glcontext);
