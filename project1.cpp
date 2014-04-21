@@ -151,8 +151,10 @@ void input(SDL_Window* screen ){
 }
 
 //----------------------------------------------------------------------------
-int detectCollision(){
-
+collisionInfo detectCollision(){
+	collisionInfo collision;
+	collision.isColliding=false;
+	return collision;
 	/*get position of ball:
 	vec3 ballPosition[4];
 	ballPosition = getBallPosition()*/
@@ -177,20 +179,22 @@ int detectCollision(){
 	*/	
 }
 
-int updateScore(int collision){
-	if (collision == 1){
-		score[0]++;
-		std::cout<<"Player 1 scored!\n\n";
-	}
-	if (collision == 2){
-		score[1]++;
-		std::cout<<"Player 2 scored!\n\n";
-	}
+void updateScore(collisionInfo collision){
+	if (collision.isColliding ){
+		if (collision.player == 0){
+			score[0]++;
+			std::cout<<"Player 1 scored!\n\n";
+		}
 
-	std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<'\n';	
+		if (collision.player == 1){
+			score[1]++;
+			std::cout<<"Player 2 scored!\n\n";
+		}		
+		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<'\n';	
+	}
 }
 
-void updatePositions(struct collision){
+void updatePositions(collisionInfo collision){
 	
 }
 
