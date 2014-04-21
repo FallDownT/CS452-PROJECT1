@@ -12,8 +12,9 @@ typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
 const int ms_per_frame = 50; //20fps, my vm runs really slow
-int SpeedFactor = 1;
+float speedFactor = 1;
 int score[2] = {0,0}; //element 0 is player 1's score, element 1 is player 2's score
+float ballTrajectory = 0; //slope of ball's path, factor of aspect ratio
 
 typedef struct{
 	bool isColliding; //true if collision, false if no collision
@@ -21,7 +22,20 @@ typedef struct{
 	int location; //location of the collision on the paddle. determines return path
 }collisionInfo;
 
-
+//paddle diagram:
+/*
+  ||  +5
+  ||  +4
+  ||  +3
+  ||  +2
+  ||  +1
+  ||  0 - middle
+  ||  -1
+  ||  -2
+  ||  -3
+  ||  -4
+  ||  -5
+*/
 // Model and view matrices uniform location
 GLuint  mMatrix, vMatrix, pMatrix;
 
@@ -231,29 +245,30 @@ void display( SDL_Window* screen ){
 
 void input(SDL_Window* screen ){
 
-  SDL_Event event;
+	SDL_Event event;
 
-  while (SDL_PollEvent(&event)){//Handling the keyboard
-    switch (event.type){
-    case SDL_QUIT:exit(0);break;
-    case SDL_KEYDOWN:
-      switch(event.key.keysym.sym){
-      case SDLK_ESCAPE:exit(0);
-      case SDLK_w://paddle 1 up;
-		  break;
-      case SDLK_s://paddle 1 down;
-		  break;
-      case SDLK_i://paddle 2 up
-		  break;
-      case SDLK_k://paddle 2 down
-		  break;
-	  case SDLK_r://new game
-		  score[0]=0;
-    	  score[1]=0;
-          break;
-      }
-    }
-  }
+	while (SDL_PollEvent(&event)){//Handling the keyboard
+		switch (event.type){
+		case SDL_QUIT:exit(0);break;
+		case SDL_KEYDOWN:
+			switch(event.key.keysym.sym){
+			case SDLK_ESCAPE:exit(0);
+			case SDLK_w://paddle 1 up;
+				break;
+			case SDLK_s://paddle 1 down;
+				break;
+			case SDLK_i://paddle 2 up
+				break;
+			case SDLK_k://paddle 2 down
+				break;
+			case SDLK_r://new game
+				score[0]=0;
+				score[1]=0;
+				speedFactor=1;
+				break;
+			}
+		}
+	}
 }
 
 //----------------------------------------------------------------------------
@@ -281,22 +296,57 @@ collisionInfo detectCollision(){
 	  and point 3 = some point on paddle 2
 	  -> collision with paddle 2
 	       output locaiton of collision
-	 
+
+		track position in relation to the window size. if we hit the top
+		or bottom of window, invert slope. if we hit the sides, give a score
+		to the player whose paddle the ball came from
 	*/	
 }
 
 void updateScore(collisionInfo collision){
-	if (collision.isColliding ){
-		if (collision.player == 0){
-			score[0]++;
-			std::cout<<"Player 1 scored!\n\n";
-		}
+	if (/*location of ball == left wall &&*/collision.player == 1){
+		score[0]++;
+		std::cout<<"Player 1 scored!\n";
+		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
+	}
 
-		if (collision.player == 1){
-			score[1]++;
-			std::cout<<"Player 2 scored!\n\n";
-		}		
-		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<'\n';	
+	if (/*location of ball == right wall && */collision.player == 2){
+		score[1]++;
+		std::cout<<"Player 2 scored!\n";
+		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
+	}		
+}
+
+void updateSpeed(collisionInfo collision){
+	if (collision.isColliding ){
+		speedFactor = speedFactor + 0.05;
+	}
+}
+
+void calculateTrajectory(collisionInfo collision){
+	switch (collision.location){
+			case 5:
+				break;
+			case 4:
+				break;
+			case 3:
+				break;
+			case 2:
+				break;
+			case 1:
+				break;
+			case 0:
+				break;
+			case -1:
+				break;
+			case -2:
+				break;
+			case -3:
+				break;
+			case -4:
+				break;
+			case -5:
+				break;
 	}
 }
 
@@ -324,7 +374,20 @@ reshape( int width, int height )
 }
 
 void updatePositions(collisionInfo collision){
+	//depending on if there was a collision, and which player's paddle experienced the collision,
+	//and the location of the collision on the paddle, update the position of the paddle. store this
+	//information until the next collision so that position can be updated in route to the next paddle
+
+	calculateTrajectory(collision);
 	
+	if (collision.isColliding){
+		
+	}
+	else{
+
+	}
+
+	reshape(512,384);
 }
 
 int main( int argc, char **argv )
@@ -369,7 +432,6 @@ int main( int argc, char **argv )
 	}
   
 	init();
-	reshape(512,384);
 
 	while (true) {
 		ticks_0 = SDL_GetTicks();
@@ -378,21 +440,21 @@ int main( int argc, char **argv )
 		input(window);
 		collision = detectCollision();
 		updateScore(collision);
+		updateSpeed(collision);
 		updatePositions(collision);
 		display(window);
 
 		ticks_1 = SDL_GetTicks();
 		sleepTime =  ms_per_frame - (ticks_1 - ticks_0);
-		std::chrono::milliseconds dura(sleepTime);
 
-		if (sleepTime > 0){
-			std::this_thread::sleep_for(dura);
-			std::cout<<"slept for "<<sleepTime<<" ms.\n";
+		while (sleepTime < 0){
+			sleepTime = sleepTime + ms_per_frame;
+			std::cout<<"*Frame Dropped*\n";
 		}
-		else{
-			std::cout<<"frame dropped.\n";
-			std::this_thread::sleep_for(dura);
-		}
+			
+		std::chrono::milliseconds dura(sleepTime);
+		std::this_thread::sleep_for(dura);
+		std::cout<<"slept for "<<sleepTime<<" ms.\n";
 	}
 
 	SDL_GL_DeleteContext(glcontext);
