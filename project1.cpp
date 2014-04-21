@@ -235,6 +235,13 @@ void init()
 
 //----------------------------------------------------------------------------
 
+void printMat4(mat4 m){
+	std::cout<<" "<<m[0][0]<<" "<<m[0][1]<<" "<<m[0][2]<<" "<<m[0][3]<<std::endl;
+	std::cout<<" "<<m[1][0]<<" "<<m[1][1]<<" "<<m[1][2]<<" "<<m[1][3]<<std::endl;
+	std::cout<<" "<<m[2][0]<<" "<<m[2][1]<<" "<<m[2][2]<<" "<<m[2][3]<<std::endl;
+	std::cout<<" "<<m[3][0]<<" "<<m[3][1]<<" "<<m[3][2]<<" "<<m[3][3]<<std::endl;
+}
+
 void display( SDL_Window* screen ){
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
@@ -288,12 +295,30 @@ void input(SDL_Window* screen ){
 			switch(event.key.keysym.sym){
 			case SDLK_ESCAPE:exit(0);
 			case SDLK_w://paddle 1 up;
+				if (modelP1[1][3] < 7.0) {
+					modelP1 = modelP1 * Translate(0.0,1.0,0.0);
+				}
+				std::cout<<"modelP1="<<std::endl;
+				printMat4(modelP1);
+				std::cout<<std::endl;
 				break;
 			case SDLK_s://paddle 1 down;
+				if (modelP1[1][3] > -7.0) {
+					modelP1 = modelP1 * Translate(0.0,-1.0,0.0);
+				}
+				std::cout<<"modelP1="<<std::endl;
+				printMat4(modelP1);
+				std::cout<<std::endl;
 				break;
 			case SDLK_i://paddle 2 up
+				if (modelP2[1][3] < 7.0) {
+					modelP2 = modelP2 * Translate(0.0,1.0,0.0);
+				}
 				break;
 			case SDLK_k://paddle 2 down
+				if (modelP2[1][3] > -7.0) {
+					modelP2 = modelP2 * Translate(0.0,-1.0,0.0);
+				}
 				break;
 			case SDLK_r://new game
 				score[0]=0;
