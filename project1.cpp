@@ -11,7 +11,6 @@
 typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
-
 const int ms_per_frame = 50; //20fps, my vm runs really slow
 int SpeedFactor = 1;
 int score[2] = {0,0}; //element 0 is player 1's score, element 1 is player 2's score
@@ -26,6 +25,10 @@ typedef struct{
 // Model and view matrices uniform location
 GLuint  mMatrix, vMatrix, pMatrix;
 
+// Define global vaos and ebos
+GLuint vao1, vao2, vao3, ebo1, ebo2, ebo3;
+
+
 // Create camera view variables
 point4 at( 0.0, 0.0, 0.0, 1.0 );
 point4 eye( 0.0, 0.0, 5.0, 1.0 );
@@ -33,67 +36,157 @@ vec4   up( 0.0, 10.0, 0.0, 0.0 );
 
 GLfloat size=1;
 
-GLfloat vertexarray[]={size,size,-size,
-						   size,-size,-size,
-						   -size,-size,-size,
-						   -size,size,-size,
-						   size,size,size,
-						   size,-size,size,
-						   -size,-size,size,
-						   -size,size,size
-						   };
+GLfloat positionArray[]={
+	// Paddle
+	-0.5,-3.0,0.0,
+	-0.5,3.0,0.0,
+	0.5,3.0,0.0,
+	0.5,-3.0,0.0,
 
-GLfloat colorarray[]={
-	1.0f,1.0f,1.0f,1.0f,
-	1.0f,1.0f,1.0f,1.0f,
-	1.0f,1.0f,1.0f,1.0f,
-	1.0f,1.0f,1.0f,1.0f,
-	1.0f,1.0f,1.0f,1.0f,
-	1.0f,1.0f,1.0f,1.0f,
-	1.0f,1.0f,1.0f,1.0f,
-	1.0f,1.0f,1.0f,1.0f
+	// Ball
+	-0.5+5,-0.5,0.0,
+	-0.5+5,0.5,0.0,
+	0.5+5,0.5,0.0,
+	0.5+5,-0.5,0.0
+};
+
+GLfloat colorArray[]={
+	// Paddle 1
+	1.0,0.0,0.0,0.0,
+	1.0,0.0,0.0,0.0,
+	1.0,0.0,0.0,0.0,
+	1.0,0.0,0.0,0.0,
+
+	// Paddle 2
+	0.0,0.0,1.0,0.0,
+	0.0,0.0,1.0,0.0,
+	0.0,0.0,1.0,0.0,
+	0.0,0.0,1.0,0.0,
+
+	// Ball
+	1.0f,1.0f,0.0f,1.0f,
+	0.0f,0.0f,0.0f,1.0f,
+	0.0f,1.0f,1.0f,1.0f,
+	1.0f,0.0f,1.0f,1.0f
 };
 											
-GLubyte elems[]={
-	7,3,4,0,1,3,2,
-	7,6,4,5,1,6,2,1
+GLubyte elemsArray[]={
+	0,1,2,3
 };
+
+// Define Constants
+GLuint NumVerticies = 4;
 
 //----------------------------------------------------------------------------
 
 // OpenGL initialization
 void init()
 {
-    // Create a vertex array object
-    GLuint vao, vbo, ebo;
-    glGenVertexArrays( 1,&vao);
-    glBindVertexArray( vao );
-
-	// Create Vertex and Normal buffer
-	glGenBuffers(1,&vbo);
-	glBindBuffer(GL_ARRAY_BUFFER,vbo);
-	glBufferData(GL_ARRAY_BUFFER,sizeof(vertexarray) + sizeof(colorarray),NULL,GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vertexarray),vertexarray);
-	glBufferSubData(GL_ARRAY_BUFFER,sizeof(vertexarray),sizeof(colorarray),colorarray);
-
     // Load shaders and use the resulting shader program
     GLuint program = InitShader( "vshader.glsl", "fshader.glsl" );
     glUseProgram( program );
-	
-    // Set up vertex arrays
-	GLuint in_position = glGetAttribLocation(program, "in_position" );
-	glVertexAttribPointer(in_position,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(0));
+
+	// Define data members
+    GLuint vbo;
+	size_t posDataOffset, colorDataOffset, paddleElemsArray, ballElemsSize;
+
+	// --------------------------------------------------------------
+	// -------  V E R T E X    A R R A Y    O B J E C T    1  -------
+	// --------------------------------------------------------------
+	// Define offsets and sizes
+	posDataOffset = 0;
+	colorDataOffset = sizeof(positionArray);
+
+    // Generate and bind new vertex array object
+    glGenVertexArrays( 1,&vao1 );
+    glBindVertexArray( vao1 );
+
+	// Generate and bind new vertex buffer object and populate the buffer
+	glGenBuffers( 1,&vbo );
+	glBindBuffer( GL_ARRAY_BUFFER,vbo );
+	glBufferData( GL_ARRAY_BUFFER,sizeof(positionArray) + sizeof(colorArray),NULL,GL_STATIC_DRAW );
+	glBufferSubData( GL_ARRAY_BUFFER,posDataOffset,sizeof(positionArray),positionArray );
+	glBufferSubData( GL_ARRAY_BUFFER,colorDataOffset,sizeof(colorArray),colorArray );
+
+	// Bind position attribute of vbo
+	GLuint in_position = glGetAttribLocation( program, "in_position" );
+	glVertexAttribPointer( in_position,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(posDataOffset) );
     glEnableVertexAttribArray( in_position );
 
-	GLuint in_color = glGetAttribLocation(program, "in_color" );
-	glVertexAttribPointer(in_color,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(sizeof(vertexarray)));
+	// Bind color attribute of vbo
+	GLuint in_color = glGetAttribLocation( program, "in_color" );
+	glVertexAttribPointer( in_color,4,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(colorDataOffset) );
     glEnableVertexAttribArray( in_color );
 
-	// Create Element Array Buffer
-	glGenBuffers(1,&ebo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ebo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER,sizeof(elems),elems,GL_STATIC_DRAW);
-		 
+	// Generate and bind element buffer object
+	glGenBuffers( 1,&ebo1 );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER,ebo1 );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER,sizeof(elemsArray),elemsArray,GL_STATIC_DRAW );
+
+	// Release bind to vao1
+	glBindVertexArray( 0 );
+	// --------------------------------------------------------------
+
+	// --------------------------------------------------------------
+	// -------  V E R T E X    A R R A Y    O B J E C T    2  -------
+	// --------------------------------------------------------------
+	// Define new offsets
+	posDataOffset += 0;	// Duplicating last paddle
+	colorDataOffset += sizeof(GLfloat) * 4 * NumVerticies;	// Different color
+
+    // Generate new vertex array object
+    glGenVertexArrays( 1,&vao2 );
+    glBindVertexArray( vao2 );
+
+	// Bind vertex buffer object
+	// --Use same vbo as vao1 (no new buffer has been bound)
+	
+    // Bind attributes to vertex array
+	glVertexAttribPointer(in_position,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(posDataOffset));
+    glEnableVertexAttribArray( in_position );
+
+	glVertexAttribPointer(in_color,4,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(colorDataOffset));
+    glEnableVertexAttribArray( in_color );
+
+	// Generate and bind element buffer object
+	glGenBuffers( 1,&ebo2 );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER,ebo2 );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER,sizeof(elemsArray),elemsArray,GL_STATIC_DRAW );
+
+	// Release bind to vao2
+	glBindVertexArray( 0 );
+	// --------------------------------------------------------------
+
+	// --------------------------------------------------------------
+	// -------  V E R T E X    A R R A Y    O B J E C T    3  -------
+	// --------------------------------------------------------------
+	// Define new offsets
+	posDataOffset += sizeof(GLfloat) * 3 * NumVerticies;
+	colorDataOffset += sizeof(GLfloat) * 4 * NumVerticies;
+
+    // Generate new vertex array object
+    glGenVertexArrays( 1,&vao3 );
+    glBindVertexArray( vao3 );
+
+	// Bind vertex buffer object
+	// --Use same vbo as vao1 (no new buffer has been bound)
+	
+    // Bind attributes to vertex array
+	glVertexAttribPointer(in_position,3,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(posDataOffset));
+    glEnableVertexAttribArray( in_position );
+
+	glVertexAttribPointer(in_color,4,GL_FLOAT,GL_FALSE,0,BUFFER_OFFSET(colorDataOffset));
+    glEnableVertexAttribArray( in_color );
+
+	// Generate and bind element buffer object
+	glGenBuffers( 1,&ebo3 );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER,ebo3 );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER,sizeof(elemsArray),elemsArray,GL_STATIC_DRAW );
+
+	// Release bind to vao3
+	glBindVertexArray( 0 );
+	// --------------------------------------------------------------
+
     // Retrieve transformation uniform variable locations
     mMatrix = glGetUniformLocation( program, "modelMatrix" );
     vMatrix = glGetUniformLocation( program, "viewMatrix" );
@@ -101,7 +194,7 @@ void init()
     
     glEnable( GL_DEPTH_TEST );
     
-    glClearColor( 0.2, 0.6, 0.8, 1.0 ); // sky blue background 
+    glClearColor( 0.0, 0.0, 0.0, 1.0 ); // black background 
 }
 
 //----------------------------------------------------------------------------
@@ -116,7 +209,20 @@ void display( SDL_Window* screen ){
     mat4 view = LookAt( eye, at, up );
     glUniformMatrix4fv( vMatrix, 1, GL_TRUE, view );
 
-    glDrawElements( GL_TRIANGLE_STRIP,sizeof(elems),GL_UNSIGNED_BYTE,NULL);
+	// Draw elements of vao1
+	glBindVertexArray( vao1 );
+    glDrawElements( GL_TRIANGLE_FAN,sizeof(elemsArray),GL_UNSIGNED_BYTE,0 );
+
+	// Draw elements of vao2
+	glBindVertexArray( vao2 );
+    glDrawElements( GL_TRIANGLE_FAN,sizeof(elemsArray),GL_UNSIGNED_BYTE,0 );
+
+	// Draw elements of vao3
+	glBindVertexArray( vao3 );
+    glDrawElements( GL_TRIANGLE_FAN,sizeof(elemsArray),GL_UNSIGNED_BYTE,0 );
+
+	// Release vao binds and swap buffers
+	glBindVertexArray( 0 );
     glFlush();
 	SDL_GL_SwapWindow(screen);
 }
@@ -194,20 +300,41 @@ void updateScore(collisionInfo collision){
 	}
 }
 
+void
+reshape( int width, int height )
+{
+    glViewport( 0, 0, width, height );
+
+    GLfloat left = -10.0, right = 10.0;
+    GLfloat top = 10.0, bottom = -10.0;
+    GLfloat zNear = -20.0, zFar = 20.0;
+
+    GLfloat aspect = GLfloat(width)/height;
+
+    if ( aspect > 1.0 ) {
+		left *= aspect;
+		right *= aspect;
+    } else {
+		top /= aspect;
+		bottom /= aspect;
+    }
+
+    mat4 projection = Ortho( left, right, bottom, top, zNear, zFar );
+    glUniformMatrix4fv( pMatrix, 1, GL_TRUE, projection );
+}
+
 void updatePositions(collisionInfo collision){
 	
 }
 
 int main( int argc, char **argv )
 {
-		
 	//SDL window and context management
 	SDL_Window *window;
+	
 	//used in main loop
 	int sleepTime = 0;
 	int ticks_0, ticks_1;
-
-
 	
 	if(SDL_Init(SDL_INIT_VIDEO)<0){//initilizes the SDL video subsystem
 		fprintf(stderr,"Unable to create window: %s\n", SDL_GetError());
@@ -217,12 +344,12 @@ int main( int argc, char **argv )
 
 	//create window
 	window = SDL_CreateWindow(
-		"Beamer's Crew - Project 1", //Window title
-		SDL_WINDOWPOS_UNDEFINED, //initial x position
-		SDL_WINDOWPOS_UNDEFINED, //initial y position
-		500,							//width, in pixels
-		500,							//height, in pixels
-		SDL_WINDOW_OPENGL	//flags to be had
+		"Beamer's Crew - Project 1",	//Window title
+		SDL_WINDOWPOS_UNDEFINED,	//initial x position
+		SDL_WINDOWPOS_UNDEFINED,	//initial y position
+		512,						//width, in pixels
+		384,						//height, in pixels
+		SDL_WINDOW_OPENGL			//flags to be had
 		);
 	
 	//check window creation
@@ -242,6 +369,7 @@ int main( int argc, char **argv )
 	}
   
 	init();
+	reshape(512,384);
 
 	while (true) {
 		ticks_0 = SDL_GetTicks();
@@ -273,3 +401,4 @@ int main( int argc, char **argv )
 	
     return 0;
 }
+
