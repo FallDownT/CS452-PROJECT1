@@ -2,9 +2,26 @@
 
 #include "Angel.h"
 #include <iostream>
+#include <cstdlib>
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_opengl.h"
+#include <chrono>
+#include <thread>
 
 typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
+
+
+const int ms_per_frame = 50; //20fps, my vm runs really slow
+int SpeedFactor = 1;
+int score[2] = {0,0}; //element 0 is player 1's score, element 1 is player 2's score
+
+typedef struct{
+	bool isColliding; //true if collision, false if no collision
+	int player; //0 if first player, 1 if second player
+	int location; //location of the collision on the paddle. determines return path
+}collisionInfo;
+
 
 // Model and view matrices uniform location
 GLuint  mMatrix, vMatrix, pMatrix;
@@ -16,16 +33,15 @@ vec4   up( 0.0, 10.0, 0.0, 0.0 );
 
 GLfloat size=1;
 
-GLfloat vertexarray[]={
-	size,size,-size,
-	size,-size,-size,
-	-size,-size,-size,
-	-size,size,-size,
-	size,size,size,
-	size,-size,size,
-	-size,-size,size,
-	-size,size,size
-};
+GLfloat vertexarray[]={size,size,-size,
+						   size,-size,-size,
+						   -size,-size,-size,
+						   -size,size,-size,
+						   size,size,size,
+						   size,-size,size,
+						   -size,-size,size,
+						   -size,size,size
+						   };
 
 GLfloat colorarray[]={
 	1.0f,1.0f,1.0f,1.0f,
@@ -46,8 +62,7 @@ GLubyte elems[]={
 //----------------------------------------------------------------------------
 
 // OpenGL initialization
-void
-init()
+void init()
 {
     // Create a vertex array object
     GLuint vao, vbo, ebo;
@@ -91,9 +106,7 @@ init()
 
 //----------------------------------------------------------------------------
 
-void
-display( void )
-{
+void display( SDL_Window* screen ){
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	// Transform model, view and/or projection matrices here
@@ -104,69 +117,155 @@ display( void )
     glUniformMatrix4fv( vMatrix, 1, GL_TRUE, view );
 
     glDrawElements( GL_TRIANGLE_STRIP,sizeof(elems),GL_UNSIGNED_BYTE,NULL);
-    glutSwapBuffers();
+    glFlush();
+	SDL_GL_SwapWindow(screen);
 }
 
 //----------------------------------------------------------------------------
 
-void
-keyboard( unsigned char key, int x, int y )
-{
-    switch( key ) {
-		case 033: // Escape Key
-		case 'q': case 'Q':
-			exit( EXIT_SUCCESS );
-			break;
+void input(SDL_Window* screen ){
+
+  SDL_Event event;
+
+  while (SDL_PollEvent(&event)){//Handling the keyboard
+    switch (event.type){
+    case SDL_QUIT:exit(0);break;
+    case SDL_KEYDOWN:
+      switch(event.key.keysym.sym){
+      case SDLK_ESCAPE:exit(0);
+      case SDLK_w://paddle 1 up;
+		  break;
+      case SDLK_s://paddle 1 down;
+		  break;
+      case SDLK_i://paddle 2 up
+		  break;
+      case SDLK_k://paddle 2 down
+		  break;
+	  case SDLK_r://new game
+		  score[0]=0;
+    	  score[1]=0;
+          break;
+      }
     }
-	glutPostRedisplay();
+  }
 }
 
 //----------------------------------------------------------------------------
+int detectCollision(){
 
-void
-reshape( int width, int height )
-{
-    glViewport( 0, 0, width, height );
+	/*get position of ball:
+	vec3 ballPosition[4];
+	ballPosition = getBallPosition()*/
+	/*
+	    1-----0
+		|     |
+		|     |
+		2-----3
+	*/
 
-    GLfloat left = -5.0, right = 15.0;
-    GLfloat top = 15.0, bottom = -5.0;
-    GLfloat zNear = -20.0, zFar = 20.0;
+	/*
+	  if point 1 equals some point on paddle 1
+	  and point 2 equals some point on paddle 1
+	  -> collision with paddle 1
+	       output location of collision
 
-    GLfloat aspect = GLfloat(width)/height;
-
-    if ( aspect > 1.0 ) {
-		left *= aspect;
-		right *= aspect;
-    } else {
-		top /= aspect;
-		bottom /= aspect;
-    }
-
-    mat4 projection = Ortho( left, right, bottom, top, zNear, zFar );
-    glUniformMatrix4fv( pMatrix, 1, GL_TRUE, projection );
+	  if point 0 = some point on paddle 2
+	  and point 3 = some point on paddle 2
+	  -> collision with paddle 2
+	       output locaiton of collision
+	 
+	*/	
 }
 
-//----------------------------------------------------------------------------
+int updateScore(int collision){
+	if (collision == 1){
+		score[0]++;
+		std::cout<<"Player 1 scored!\n\n";
+	}
+	if (collision == 2){
+		score[1]++;
+		std::cout<<"Player 2 scored!\n\n";
+	}
 
-int
-main( int argc, char **argv )
+	std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<'\n';	
+}
+
+void updatePositions(struct collision){
+	
+}
+
+int main( int argc, char **argv )
 {
+		
+	//SDL window and context management
+	SDL_Window *window;
+	//used in main loop
+	int sleepTime = 0;
+	int ticks_0, ticks_1;
 
-    glutInit( &argc, argv );
-    glutInitDisplayMode( GLUT_RGBA | GLUT_DEPTH );
-    glutInitWindowSize( 1024, 768 );
-    glutInitContextVersion( 2, 1 );
-    glutInitContextProfile( GLUT_CORE_PROFILE );
-    glutCreateWindow( "Beamer's Crew - Project 1" );
 
-    glewInit();
+	
+	if(SDL_Init(SDL_INIT_VIDEO)<0){//initilizes the SDL video subsystem
+		fprintf(stderr,"Unable to create window: %s\n", SDL_GetError());
+		SDL_Quit();
+		exit(1);//die on error
+	}
 
-    init();
+	//create window
+	window = SDL_CreateWindow(
+		"Beamer's Crew - Project 1", //Window title
+		SDL_WINDOWPOS_UNDEFINED, //initial x position
+		SDL_WINDOWPOS_UNDEFINED, //initial y position
+		500,							//width, in pixels
+		500,							//height, in pixels
+		SDL_WINDOW_OPENGL	//flags to be had
+		);
+	
+	//check window creation
+	if(window==NULL){
+		fprintf(stderr,"Unable to create window: %s\n",SDL_GetError());
+	}
+	
 
-    glutDisplayFunc( display );
-    glutReshapeFunc( reshape );
-    glutKeyboardFunc( keyboard );
+	//creates opengl context associated with the window
+	SDL_GLContext glcontext=SDL_GL_CreateContext(window);
+	
+	//initializes glew
+	glewExperimental=GL_TRUE;
+	if(glewInit()){
+		fprintf(stderr, "Unable to initalize GLEW");
+		exit(EXIT_FAILURE);
+	}
+  
+	init();
 
-    glutMainLoop();
+	while (true) {
+		ticks_0 = SDL_GetTicks();
+		collisionInfo collision;
+
+		input(window);
+		collision = detectCollision();
+		updateScore(collision);
+		updatePositions(collision);
+		display(window);
+
+		ticks_1 = SDL_GetTicks();
+		sleepTime =  ms_per_frame - (ticks_1 - ticks_0);
+		std::chrono::milliseconds dura(sleepTime);
+
+		if (sleepTime > 0){
+			std::this_thread::sleep_for(dura);
+			std::cout<<"slept for "<<sleepTime<<" ms.\n";
+		}
+		else{
+			std::cout<<"frame dropped.\n";
+			std::this_thread::sleep_for(dura);
+		}
+	}
+
+	SDL_GL_DeleteContext(glcontext);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+	
     return 0;
 }
