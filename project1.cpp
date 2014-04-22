@@ -7,12 +7,13 @@
 #include "SDL2/SDL_opengl.h"
 #include <chrono>
 #include <thread>
+#include <cmath>
 
 typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
 const int ms_per_frame = 50; //20fps, my vm runs really slow
-float speedFactor = 1;
+float speedFactor = 0.0000000000001;
 int score[2] = {0,0}; //element 0 is player 1's score, element 1 is player 2's score
 float ballTrajectory = 0; //slope of ball's path, factor of aspect ratio
 
@@ -21,6 +22,12 @@ typedef struct{
 	int player; //0 if first player, 1 if second player
 	int location; //location of the collision on the paddle. determines return path
 }collisionInfo;
+
+typedef struct{
+	float xCoord;
+	float yCoord;
+	float zCoord;
+}trajectory;
 
 //paddle diagram:
 /*
@@ -94,6 +101,10 @@ GLubyte elemsArray[]={
 
 // Define Constants
 GLuint NumVerticies = 4;
+GLuint BallHeight = 1;
+GLuint BallWidth = 1;
+GLuint PaddleHeight = 6;
+GLuint PaddleWidth = 1;
 
 //----------------------------------------------------------------------------
 
@@ -299,7 +310,7 @@ void input(SDL_Window* screen ){
 					modelP1 = modelP1 * Translate(0.0,1.0,0.0);
 				}
 				std::cout<<"modelP1="<<std::endl;
-				printMat4(modelP1);
+				//		printMat4(modelP1);
 				std::cout<<std::endl;
 				break;
 			case SDLK_s://paddle 1 down;
@@ -307,7 +318,7 @@ void input(SDL_Window* screen ){
 					modelP1 = modelP1 * Translate(0.0,-1.0,0.0);
 				}
 				std::cout<<"modelP1="<<std::endl;
-				printMat4(modelP1);
+				// printMat4(modelP1);
 				std::cout<<std::endl;
 				break;
 			case SDLK_i://paddle 2 up
@@ -319,11 +330,14 @@ void input(SDL_Window* screen ){
 				if (modelP2[1][3] > -7.0) {
 					modelP2 = modelP2 * Translate(0.0,-1.0,0.0);
 				}
-				break;
+			break;
 			case SDLK_r://new game
+				std::cout<<"*new game*\n";
 				score[0]=0;
 				score[1]=0;
-				speedFactor=1;
+				speedFactor=0.0000000000001;
+				//need to reset ball position
+				//need to reset paddle positions
 				break;
 			}
 		}
@@ -332,19 +346,6 @@ void input(SDL_Window* screen ){
 
 //----------------------------------------------------------------------------
 collisionInfo detectCollision(){
-	collisionInfo collision;
-	collision.isColliding=false;
-	return collision;
-	/*get position of ball:
-	vec3 ballPosition[4];
-	ballPosition = getBallPosition()*/
-	/*
-	    1-----0
-		|     |
-		|     |
-		2-----3
-	*/
-
 	/*
 	  if point 1 equals some point on paddle 1
 	  and point 2 equals some point on paddle 1
@@ -359,7 +360,19 @@ collisionInfo detectCollision(){
 		track position in relation to the window size. if we hit the top
 		or bottom of window, invert slope. if we hit the sides, give a score
 		to the player whose paddle the ball came from
-	*/	
+	*/
+	collisionInfo collision;
+	collision.isColliding=false;
+
+	if ((modelB[0][3] - BallWidth/2) == (modelP1[0][3] + PaddleWidth/2)){
+		if (abs((modelB[1][3] - modelP1[1][3]) < (PaddleHeight+BallHeight)/2)){
+			collision.isColliding=true;
+		}
+	}
+
+	
+	return collision;
+
 }
 
 void updateScore(collisionInfo collision){
@@ -378,35 +391,79 @@ void updateScore(collisionInfo collision){
 
 void updateSpeed(collisionInfo collision){
 	if (collision.isColliding ){
-		speedFactor = speedFactor + 0.05;
+		speedFactor = speedFactor + 0.0000001;
 	}
 }
 
-void calculateTrajectory(collisionInfo collision){
+trajectory calculateTrajectory(collisionInfo collision){
+	trajectory t;
+	int direction = 0;
+	if (collision.player == 0){
+		direction = 1;
+	}
+	else{
+		direction = -1;
+	}
+	
 	switch (collision.location){
 			case 5:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = 0.0000005;
+				t.zCoord = 0;
 				break;
 			case 4:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = 0.0000004;
+				t.zCoord = 0;
 				break;
 			case 3:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = 0.003;
+				t.zCoord = 0;
 				break;
 			case 2:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = 0.002;
+				t.zCoord = 0;
 				break;
 			case 1:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = 0.001;
+				t.zCoord = 0;
 				break;
 			case 0:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = 0;
+				t.zCoord = 0;
 				break;
 			case -1:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = -0.001;
+				t.zCoord = 0;
 				break;
 			case -2:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = -0.002;
+				t.zCoord = 0;
 				break;
 			case -3:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = -0.003;
+				t.zCoord = 0;
 				break;
 			case -4:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = -0.004;
+				t.zCoord = 0;
 				break;
 			case -5:
+				t.xCoord = direction*speedFactor;
+				t.yCoord = -0.005;
+				t.zCoord = 0;
 				break;
 	}
+
+	return t;
 }
 
 void
@@ -442,18 +499,19 @@ reshape( int width, int height )
 	glUseProgram( 0 );
 }
 
-void updatePositions(collisionInfo collision){
+void updateBallPosition(collisionInfo collision){
 	//depending on if there was a collision, and which player's paddle experienced the collision,
 	//and the location of the collision on the paddle, update the position of the paddle. store this
 	//information until the next collision so that position can be updated in route to the next paddle
-
-	calculateTrajectory(collision);
+	trajectory t;
 	
 	if (collision.isColliding){
 		
 	}
 	else{
-
+		t = calculateTrajectory(collision);
+		modelB = modelB * Translate(t.xCoord, t.yCoord, t.zCoord);
+		
 	}
 
 	reshape(512,384);
@@ -509,8 +567,8 @@ int main( int argc, char **argv )
 		input(window);
 		collision = detectCollision();
 		updateScore(collision);
-		updateSpeed(collision);
-		updatePositions(collision);
+		updateSpeed(collision);		
+		updateBallPosition(collision);
 		display(window);
 
 		ticks_1 = SDL_GetTicks();
