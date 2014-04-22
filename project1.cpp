@@ -13,7 +13,7 @@ typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
 const int ms_per_frame = 50; //20fps, my vm runs really slow
-float speedFactor = 0.0000000000001;
+float speedFactor = 0.1;
 int score[2] = {0,0}; //element 0 is player 1's score, element 1 is player 2's score
 float ballTrajectory = 0; //slope of ball's path, factor of aspect ratio
 
@@ -345,13 +345,16 @@ collisionInfo detectCollision(collisionInfo collision){
 		to the player whose paddle the ball came from
 	*/
 
-	// Check for collision with paddle 1
+
+	
+// Check for collision with paddle 1
 	if ((modelB[0][3] - BallWidth/2) == (modelP1[0][3] + PaddleWidth/2)){
 		float heightOfImpact = modelB[1][3] - modelP1[1][3];
 		if (abs(heightOfImpact) < ((PaddleHeight+BallHeight)/2)){
 			collision.isColliding=true;
 			collision.isComingFromPlayer1=true;
 			collision.location=heightOfImpact;
+			std::cout<<"\n**collision with paddle 1**\n\n";
 		}
 	} // Check for collision with paddle 2
 	else if ((modelB[0][3] + BallWidth/2) == (modelP2[0][3] - PaddleWidth/2)){
@@ -360,10 +363,11 @@ collisionInfo detectCollision(collisionInfo collision){
 			collision.isColliding=true;
 			collision.isComingFromPlayer1=false;
 			collision.location=heightOfImpact;
+			std::cout<<"\n**collision with paddle 2**\n\n";
 		}
 	} // No collision detected
 	else {
-		collision.isColliding=false;
+		collision.isColliding=false;		
 	}
 	
 	return collision;
@@ -372,16 +376,19 @@ collisionInfo detectCollision(collisionInfo collision){
 //----------------------------------------------------------------------------
 
 void updateScore(collisionInfo collision){
+	int temp = 10*modelB[0][3];
 	// Player 1 scores
-	if (!collision.isComingFromPlayer1 && 0){ //and collision detection with wall
+	if (!collision.isComingFromPlayer1 && (temp == 130)){ //and collision detection with wall
 		score[0]++;
 		std::cout<<"Player 1 scored!\n";
 		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
+		//reset!
 	} // Player 2 scores
-	else if (collision.isComingFromPlayer1 && 0){ //and collision detection with wall
+	else if (collision.isComingFromPlayer1 && (temp == -130)){ //and collision detection with wall
 		score[1]++;
 		std::cout<<"Player 2 scored!\n";
 		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
+		//reset!
 	}		
 }
 
@@ -418,15 +425,21 @@ void updateBallPosition(collisionInfo collision){
 	//depending on if there was a collision, and which player's paddle experienced the collision,
 	//and the location of the collision on the paddle, update the position of the paddle. store this
 	//information until the next collision so that position can be updated in route to the next paddle
-	static vec3 t(-0.1,0.0,0.0);
+	static vec3 t(-0.1,-0.2,0.0);
 	
 	if (collision.isColliding){
 		t = calculateTrajectory(collision);
 	}
 	else {
+		int temp = 10*modelB[1][3];
+		if ((temp == 95) || (temp == -95)){
+			//hitting the ceiling or floor
+			t.y = -t.y;
+		}
+
 		modelB = modelB * Translate(t.x, t.y, t.z);
-		std::cout<<"modelB="<<std::endl;
-		printMat4(modelB);
+		// std::cout<<"modelB="<<std::endl;
+		// printMat4(modelB);
 	}
 }
 
@@ -517,7 +530,7 @@ int main( int argc, char **argv )
 		input(window);
 		collision = detectCollision(collision);
 		updateScore(collision);
-		updateSpeed(collision);		
+		// updateSpeed(collision);		
 		updateBallPosition(collision);
 		reshape(512,384);
 		display(window);
