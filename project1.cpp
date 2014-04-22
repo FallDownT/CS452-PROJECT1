@@ -24,14 +24,17 @@ float speedFactor = SpeedFactorInitial;
 float ballTrajectory = BallTrajectoryInitial; //slope of ball's path, factor of aspect ratio
 int score[2] = {0,0}; //element 0 is player 1's score, element 1 is player 2's score
 
-typedef struct{
+struct collisionInfo{
 	bool isColliding;	//true if collision, false if no collision
 	bool isComingFromPlayer1;	//true if player 1, false if player 2
 	float location;	//location of the collision on the paddle. determines return path
-}collisionInfo;
+
+	collisionInfo() : isColliding(false), isComingFromPlayer1(false), location(0.0) {}
+	
+} collision;
 
 
-void updateBallPosition(collisionInfo collision);
+void updateBallPosition(bool);
 
 // Model and view matrices uniform location
 GLuint  mMatrix, vMatrix, pMatrix;
@@ -243,17 +246,16 @@ void printMat4(mat4 m){
 	std::cout<<" "<<m[3][0]<<" "<<m[3][1]<<" "<<m[3][2]<<" "<<m[3][3]<<std::endl;
 }
 
+//----------------------------------------------------------------------------
+
 void resetGame(){
 	speedFactor=SpeedFactorInitial;
-	modelP1 = modelP2 = modelB = identity();
-	modelP1 = modelP1 * Translate(-10.0,0.0,0.0);
-	modelP2 = modelP2 * Translate(10.0,0.0,0.0);
-	collisionInfo collision;
+	modelB = identity();
 	collision.isColliding = false;
-	collision.isComingFromPlayer1 = true;
+	collision.isComingFromPlayer1 = false;
 	collision.location = 0.0;
 	ballTrajectory = BallTrajectoryInitial;
-	updateBallPosition(collision);
+	updateBallPosition(true);
 }
 
 //----------------------------------------------------------------------------
@@ -340,6 +342,9 @@ void input(SDL_Window* screen ){
 				std::cout<<"*new game*\n";
 				score[0]=0;
 				score[1]=0;
+				modelP1 = modelP2 = identity();
+				modelP1 = modelP1 * Translate(-10.0,0.0,0.0);
+				modelP2 = modelP2 * Translate(10.0,0.0,0.0);
 				resetGame();
 				break;
 			}
@@ -349,7 +354,7 @@ void input(SDL_Window* screen ){
 
 //----------------------------------------------------------------------------
 
-collisionInfo detectCollision(collisionInfo collision){
+collisionInfo detectCollision(){
 	// Get positions
 	int ballLx, ballRx, p1Lx, p1Rx, p2Lx, p2Rx;
 	ballLx = 10.0*(modelB[0][3] - BallWidth/2.0);
@@ -390,26 +395,28 @@ collisionInfo detectCollision(collisionInfo collision){
 
 //----------------------------------------------------------------------------
 
-void updateScore(collisionInfo collision){
-	int ballPosition = 10.0*(modelB[0][3]);
+void updateScore(){
+	int ballPositionX = 10.0*(modelB[0][3]);
+	int leftWall = -130;
+	int rightWall = 130;
 	// Player 1 scores
-	if (!collision.isComingFromPlayer1 && (ballPosition == 130)){ //and collision detection with wall
+	if (ballPositionX >= rightWall){
 		score[0]++;
 		std::cout<<"Player 1 scored!\n";
 		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
-		//reset!
+		resetGame();
 	} // Player 2 scores
-	else if (collision.isComingFromPlayer1 && (ballPosition == -130)){ //and collision detection with wall
+	else if (ballPositionX <= leftWall){
 		score[1]++;
 		std::cout<<"Player 2 scored!\n";
 		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
-		//reset!
+		resetGame();
 	}		
 }
 
 //----------------------------------------------------------------------------
 
-void updateSpeed(collisionInfo collision){
+void updateSpeed(){
 	if (collision.isColliding && speedFactor <= SpeedFactorMax){
 		speedFactor = speedFactor + SpeedFactorIncrement;
 	}
@@ -417,7 +424,7 @@ void updateSpeed(collisionInfo collision){
 
 //----------------------------------------------------------------------------
 
-vec3 calculateTrajectory(collisionInfo collision){
+vec3 calculateTrajectory(){
 	// Define data members
 	vec3 t(0.0);
 	int direction;
@@ -436,17 +443,17 @@ vec3 calculateTrajectory(collisionInfo collision){
 
 //----------------------------------------------------------------------------
 
-void updateBallPosition(collisionInfo collision){
+void updateBallPosition(bool forceUpdate){
 
-	//static vec3 t(-speedFactor,BallTrajectoryInitial,0.0);
-	static vec3 t(-speedFactor,0.0,0.0);
+	static vec3 t(-speedFactor,BallTrajectoryInitial,0.0);
 	
-	if (collision.isColliding){
-		t = calculateTrajectory(collision);
+	if (forceUpdate){
+		t = vec3(-speedFactor, BallTrajectoryInitial, 0.0);
+	} else if (collision.isColliding){
+		t = calculateTrajectory();
 		modelB = modelB * Translate(t.x, t.y, t.z);
-	}
-	else {
-		int temp = 10*(modelB[1][3]);
+	} else {
+		int temp = 10.0*(modelB[1][3]);
 		if ((temp <= 100 && temp >= 92) || (temp >= -100 && temp <= -92)){
 			//hitting the ceiling or floor
 			t.y = -t.y;
@@ -533,18 +540,17 @@ int main( int argc, char **argv )
 		fprintf(stderr, "Unable to initalize GLEW");
 		exit(EXIT_FAILURE);
 	}
-  
+
 	init();
 
 	while (true) {
 		ticks_0 = SDL_GetTicks();
-		collisionInfo collision;
 
 		input(window);
-		collision = detectCollision(collision);
-		updateScore(collision);
-		updateSpeed(collision);		
-		updateBallPosition(collision);
+		collision = detectCollision();
+		updateScore();
+		updateSpeed();		
+		updateBallPosition(false);
 		reshape(512,384);
 		display(window);
 
