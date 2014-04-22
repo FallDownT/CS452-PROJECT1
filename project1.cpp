@@ -18,31 +18,11 @@ int score[2] = {0,0}; //element 0 is player 1's score, element 1 is player 2's s
 float ballTrajectory = 0; //slope of ball's path, factor of aspect ratio
 
 typedef struct{
-	bool isColliding; //true if collision, false if no collision
-	int player; //0 if first player, 1 if second player
-	int location; //location of the collision on the paddle. determines return path
+	bool isColliding;	//true if collision, false if no collision
+	bool isComingFromPlayer1;	//true if player 1, false if player 2
+	float location;	//location of the collision on the paddle. determines return path
 }collisionInfo;
 
-typedef struct{
-	float xCoord;
-	float yCoord;
-	float zCoord;
-}trajectory;
-
-//paddle diagram:
-/*
-  ||  +5
-  ||  +4
-  ||  +3
-  ||  +2
-  ||  +1
-  ||  0 - middle
-  ||  -1
-  ||  -2
-  ||  -3
-  ||  -4
-  ||  -5
-*/
 // Model and view matrices uniform location
 GLuint  mMatrix, vMatrix, pMatrix;
 
@@ -253,6 +233,8 @@ void printMat4(mat4 m){
 	std::cout<<" "<<m[3][0]<<" "<<m[3][1]<<" "<<m[3][2]<<" "<<m[3][3]<<std::endl;
 }
 
+//----------------------------------------------------------------------------
+
 void display( SDL_Window* screen ){
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
@@ -309,17 +291,17 @@ void input(SDL_Window* screen ){
 				if (modelP1[1][3] < 7.0) {
 					modelP1 = modelP1 * Translate(0.0,1.0,0.0);
 				}
-				std::cout<<"modelP1="<<std::endl;
-				//		printMat4(modelP1);
-				std::cout<<std::endl;
+				//std::cout<<"modelP1="<<std::endl;
+				//printMat4(modelP1);
+				//std::cout<<std::endl;
 				break;
 			case SDLK_s://paddle 1 down;
 				if (modelP1[1][3] > -7.0) {
 					modelP1 = modelP1 * Translate(0.0,-1.0,0.0);
 				}
-				std::cout<<"modelP1="<<std::endl;
-				// printMat4(modelP1);
-				std::cout<<std::endl;
+				//std::cout<<"modelP1="<<std::endl;
+				//printMat4(modelP1);
+				//std::cout<<std::endl;
 				break;
 			case SDLK_i://paddle 2 up
 				if (modelP2[1][3] < 7.0) {
@@ -345,7 +327,8 @@ void input(SDL_Window* screen ){
 }
 
 //----------------------------------------------------------------------------
-collisionInfo detectCollision(){
+
+collisionInfo detectCollision(collisionInfo collision){
 	/*
 	  if point 1 equals some point on paddle 1
 	  and point 2 equals some point on paddle 1
@@ -355,39 +338,54 @@ collisionInfo detectCollision(){
 	  if point 0 = some point on paddle 2
 	  and point 3 = some point on paddle 2
 	  -> collision with paddle 2
-	       output locaiton of collision
+	       output location of collision
 
 		track position in relation to the window size. if we hit the top
 		or bottom of window, invert slope. if we hit the sides, give a score
 		to the player whose paddle the ball came from
 	*/
-	collisionInfo collision;
-	collision.isColliding=false;
 
+	// Check for collision with paddle 1
 	if ((modelB[0][3] - BallWidth/2) == (modelP1[0][3] + PaddleWidth/2)){
-		if (abs((modelB[1][3] - modelP1[1][3]) < (PaddleHeight+BallHeight)/2)){
+		float heightOfImpact = modelB[1][3] - modelP1[1][3];
+		if (abs(heightOfImpact) < ((PaddleHeight+BallHeight)/2)){
 			collision.isColliding=true;
+			collision.isComingFromPlayer1=true;
+			collision.location=heightOfImpact;
 		}
+	} // Check for collision with paddle 2
+	else if ((modelB[0][3] + BallWidth/2) == (modelP2[0][3] - PaddleWidth/2)){
+		float heightOfImpact = modelB[1][3] - modelP2[1][3];
+		if (abs(heightOfImpact) < ((PaddleHeight+BallHeight)/2)){
+			collision.isColliding=true;
+			collision.isComingFromPlayer1=false;
+			collision.location=heightOfImpact;
+		}
+	} // No collision detected
+	else {
+		collision.isColliding=false;
 	}
-
 	
 	return collision;
-
 }
 
+//----------------------------------------------------------------------------
+
 void updateScore(collisionInfo collision){
-	if (/*location of ball == left wall &&*/collision.player == 1){
+	// Player 1 scores
+	if (!collision.isComingFromPlayer1 && 0){ //and collision detection with wall
 		score[0]++;
 		std::cout<<"Player 1 scored!\n";
 		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
-	}
-
-	if (/*location of ball == right wall && */collision.player == 2){
+	} // Player 2 scores
+	else if (collision.isComingFromPlayer1 && 0){ //and collision detection with wall
 		score[1]++;
 		std::cout<<"Player 2 scored!\n";
 		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
 	}		
 }
+
+//----------------------------------------------------------------------------
 
 void updateSpeed(collisionInfo collision){
 	if (collision.isColliding ){
@@ -395,76 +393,44 @@ void updateSpeed(collisionInfo collision){
 	}
 }
 
-trajectory calculateTrajectory(collisionInfo collision){
-	trajectory t;
-	int direction = 0;
-	if (collision.player == 0){
+//----------------------------------------------------------------------------
+
+vec3 calculateTrajectory(collisionInfo collision){
+	// Define data members
+	vec3 t(0.0);
+	int direction;
+
+	if (collision.isComingFromPlayer1){
 		direction = 1;
-	}
-	else{
+	} else {
 		direction = -1;
 	}
-	
-	switch (collision.location){
-			case 5:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = 0.0000005;
-				t.zCoord = 0;
-				break;
-			case 4:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = 0.0000004;
-				t.zCoord = 0;
-				break;
-			case 3:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = 0.003;
-				t.zCoord = 0;
-				break;
-			case 2:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = 0.002;
-				t.zCoord = 0;
-				break;
-			case 1:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = 0.001;
-				t.zCoord = 0;
-				break;
-			case 0:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = 0;
-				t.zCoord = 0;
-				break;
-			case -1:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = -0.001;
-				t.zCoord = 0;
-				break;
-			case -2:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = -0.002;
-				t.zCoord = 0;
-				break;
-			case -3:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = -0.003;
-				t.zCoord = 0;
-				break;
-			case -4:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = -0.004;
-				t.zCoord = 0;
-				break;
-			case -5:
-				t.xCoord = direction*speedFactor;
-				t.yCoord = -0.005;
-				t.zCoord = 0;
-				break;
-	}
+
+	t.x = direction*speedFactor;
+	t.y = collision.location/1000.0;
 
 	return t;
 }
+
+//----------------------------------------------------------------------------
+
+void updateBallPosition(collisionInfo collision){
+	//depending on if there was a collision, and which player's paddle experienced the collision,
+	//and the location of the collision on the paddle, update the position of the paddle. store this
+	//information until the next collision so that position can be updated in route to the next paddle
+	static vec3 t(-0.1,0.0,0.0);
+	
+	if (collision.isColliding){
+		t = calculateTrajectory(collision);
+	}
+	else {
+		modelB = modelB * Translate(t.x, t.y, t.z);
+		std::cout<<"modelB="<<std::endl;
+		printMat4(modelB);
+	}
+}
+
+//----------------------------------------------------------------------------
 
 void
 reshape( int width, int height )
@@ -499,23 +465,7 @@ reshape( int width, int height )
 	glUseProgram( 0 );
 }
 
-void updateBallPosition(collisionInfo collision){
-	//depending on if there was a collision, and which player's paddle experienced the collision,
-	//and the location of the collision on the paddle, update the position of the paddle. store this
-	//information until the next collision so that position can be updated in route to the next paddle
-	trajectory t;
-	
-	if (collision.isColliding){
-		
-	}
-	else{
-		t = calculateTrajectory(collision);
-		modelB = modelB * Translate(t.xCoord, t.yCoord, t.zCoord);
-		
-	}
-
-	reshape(512,384);
-}
+//----------------------------------------------------------------------------
 
 int main( int argc, char **argv )
 {
@@ -565,10 +515,11 @@ int main( int argc, char **argv )
 		collisionInfo collision;
 
 		input(window);
-		collision = detectCollision();
+		collision = detectCollision(collision);
 		updateScore(collision);
 		updateSpeed(collision);		
 		updateBallPosition(collision);
+		reshape(512,384);
 		display(window);
 
 		ticks_1 = SDL_GetTicks();
