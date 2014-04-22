@@ -12,10 +12,16 @@
 typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
+// Constants
+float SpeedFactorInitial = 0.2;
+float SpeedFactorIncrement = 0.04;
+float SpeedFactorMax = 1.2;
+float BallTrajectoryInitial = -0.1;
+
 const int ms_per_frame = 50; //20fps, my vm runs really slow
-float speedFactor = 0.1;
+float speedFactor = SpeedFactorInitial;
+float ballTrajectory = BallTrajectoryInitial; //slope of ball's path, factor of aspect ratio
 int score[2] = {0,0}; //element 0 is player 1's score, element 1 is player 2's score
-float ballTrajectory = 0; //slope of ball's path, factor of aspect ratio
 
 typedef struct{
 	bool isColliding;	//true if collision, false if no collision
@@ -317,7 +323,7 @@ void input(SDL_Window* screen ){
 				std::cout<<"*new game*\n";
 				score[0]=0;
 				score[1]=0;
-				speedFactor=0.0000000000001;
+				speedFactor=SpeedFactorInitial;
 				//need to reset ball position
 				//need to reset paddle positions
 				break;
@@ -329,41 +335,35 @@ void input(SDL_Window* screen ){
 //----------------------------------------------------------------------------
 
 collisionInfo detectCollision(collisionInfo collision){
-	/*
-	  if point 1 equals some point on paddle 1
-	  and point 2 equals some point on paddle 1
-	  -> collision with paddle 1
-	       output location of collision
+	// Get positions
+	int ballLx, ballRx, p1Lx, p1Rx, p2Lx, p2Rx;
+	ballLx = 10.0*(modelB[0][3] - BallWidth/2.0);
+	ballRx = 10.0*(modelB[0][3] + BallWidth/2.0);
+	p1Lx = 10.0*(modelP1[0][3] - PaddleWidth/2.0);
+	p1Rx = 10.0*(modelP1[0][3] + PaddleWidth/2.0);
+	p2Lx = 10.0*(modelP2[0][3] - PaddleWidth/2.0);
+	p2Rx = 10.0*(modelP2[0][3] + PaddleWidth/2.0);
 
-	  if point 0 = some point on paddle 2
-	  and point 3 = some point on paddle 2
-	  -> collision with paddle 2
-	       output location of collision
+	float ballCy, p1Cy, p2Cy;
+	ballCy = modelB[1][3];
+	p1Cy = modelP1[1][3];
+	p2Cy = modelP2[1][3];
 
-		track position in relation to the window size. if we hit the top
-		or bottom of window, invert slope. if we hit the sides, give a score
-		to the player whose paddle the ball came from
-	*/
-
-
-	
-// Check for collision with paddle 1
-	if ((modelB[0][3] - BallWidth/2) == (modelP1[0][3] + PaddleWidth/2)){
-		float heightOfImpact = modelB[1][3] - modelP1[1][3];
+	// Check for collision with paddle 1
+	if (ballLx >= p1Lx && ballLx <= p1Rx){
+		float heightOfImpact = ballCy - p1Cy;
 		if (abs(heightOfImpact) < ((PaddleHeight+BallHeight)/2)){
 			collision.isColliding=true;
 			collision.isComingFromPlayer1=true;
 			collision.location=heightOfImpact;
-			std::cout<<"\n**collision with paddle 1**\n\n";
 		}
 	} // Check for collision with paddle 2
-	else if ((modelB[0][3] + BallWidth/2) == (modelP2[0][3] - PaddleWidth/2)){
-		float heightOfImpact = modelB[1][3] - modelP2[1][3];
+	else if (ballRx >= p2Lx && ballRx <= p2Rx){
+		float heightOfImpact = ballCy - p2Cy;
 		if (abs(heightOfImpact) < ((PaddleHeight+BallHeight)/2)){
 			collision.isColliding=true;
 			collision.isComingFromPlayer1=false;
 			collision.location=heightOfImpact;
-			std::cout<<"\n**collision with paddle 2**\n\n";
 		}
 	} // No collision detected
 	else {
@@ -376,15 +376,15 @@ collisionInfo detectCollision(collisionInfo collision){
 //----------------------------------------------------------------------------
 
 void updateScore(collisionInfo collision){
-	int temp = 10*modelB[0][3];
+	int ballPosition = 10.0*(modelB[0][3]);
 	// Player 1 scores
-	if (!collision.isComingFromPlayer1 && (temp == 130)){ //and collision detection with wall
+	if (!collision.isComingFromPlayer1 && (ballPosition == 130)){ //and collision detection with wall
 		score[0]++;
 		std::cout<<"Player 1 scored!\n";
 		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
 		//reset!
 	} // Player 2 scores
-	else if (collision.isComingFromPlayer1 && (temp == -130)){ //and collision detection with wall
+	else if (collision.isComingFromPlayer1 && (ballPosition == -130)){ //and collision detection with wall
 		score[1]++;
 		std::cout<<"Player 2 scored!\n";
 		std::cout<<"Score is "<<score[0]<<" : "<<score[1]<<"\n\n";
@@ -395,8 +395,8 @@ void updateScore(collisionInfo collision){
 //----------------------------------------------------------------------------
 
 void updateSpeed(collisionInfo collision){
-	if (collision.isColliding ){
-		speedFactor = speedFactor + 0.0000001;
+	if (collision.isColliding && speedFactor <= SpeedFactorMax){
+		speedFactor = speedFactor + SpeedFactorIncrement;
 	}
 }
 
@@ -414,7 +414,7 @@ vec3 calculateTrajectory(collisionInfo collision){
 	}
 
 	t.x = direction*speedFactor;
-	t.y = collision.location/1000.0;
+	t.y = collision.location/8.0;
 
 	return t;
 }
@@ -422,24 +422,22 @@ vec3 calculateTrajectory(collisionInfo collision){
 //----------------------------------------------------------------------------
 
 void updateBallPosition(collisionInfo collision){
-	//depending on if there was a collision, and which player's paddle experienced the collision,
-	//and the location of the collision on the paddle, update the position of the paddle. store this
-	//information until the next collision so that position can be updated in route to the next paddle
-	static vec3 t(-0.1,-0.2,0.0);
+
+	//static vec3 t(-speedFactor,BallTrajectoryInitial,0.0);
+	static vec3 t(-speedFactor,0.0,0.0);
 	
 	if (collision.isColliding){
 		t = calculateTrajectory(collision);
+		modelB = modelB * Translate(t.x, t.y, t.z);
 	}
 	else {
-		int temp = 10*modelB[1][3];
-		if ((temp == 95) || (temp == -95)){
+		int temp = 10*(modelB[1][3]);
+		if ((temp <= 100 && temp >= 92) || (temp >= -100 && temp <= -92)){
 			//hitting the ceiling or floor
 			t.y = -t.y;
 		}
 
 		modelB = modelB * Translate(t.x, t.y, t.z);
-		// std::cout<<"modelB="<<std::endl;
-		// printMat4(modelB);
 	}
 }
 
@@ -530,7 +528,7 @@ int main( int argc, char **argv )
 		input(window);
 		collision = detectCollision(collision);
 		updateScore(collision);
-		// updateSpeed(collision);		
+		updateSpeed(collision);		
 		updateBallPosition(collision);
 		reshape(512,384);
 		display(window);
@@ -540,12 +538,11 @@ int main( int argc, char **argv )
 
 		while (sleepTime < 0){
 			sleepTime = sleepTime + ms_per_frame;
-			std::cout<<"*Frame Dropped*\n";
+			//std::cout<<"*Frame Dropped*\n";
 		}
 			
 		std::chrono::milliseconds dura(sleepTime);
 		std::this_thread::sleep_for(dura);
-		//std::cout<<"slept for "<<sleepTime<<" ms.\n";
 	}
 
 	SDL_GL_DeleteContext(glcontext);
