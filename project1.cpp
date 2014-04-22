@@ -12,6 +12,7 @@
 typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
+
 // Constants
 float SpeedFactorInitial = 0.2;
 float SpeedFactorIncrement = 0.04;
@@ -28,6 +29,9 @@ typedef struct{
 	bool isComingFromPlayer1;	//true if player 1, false if player 2
 	float location;	//location of the collision on the paddle. determines return path
 }collisionInfo;
+
+
+void updateBallPosition(collisionInfo collision);
 
 // Model and view matrices uniform location
 GLuint  mMatrix, vMatrix, pMatrix;
@@ -239,6 +243,19 @@ void printMat4(mat4 m){
 	std::cout<<" "<<m[3][0]<<" "<<m[3][1]<<" "<<m[3][2]<<" "<<m[3][3]<<std::endl;
 }
 
+void resetGame(){
+	speedFactor=SpeedFactorInitial;
+	modelP1 = modelP2 = modelB = identity();
+	modelP1 = modelP1 * Translate(-10.0,0.0,0.0);
+	modelP2 = modelP2 * Translate(10.0,0.0,0.0);
+	collisionInfo collision;
+	collision.isColliding = false;
+	collision.isComingFromPlayer1 = true;
+	collision.location = 0.0;
+	ballTrajectory = BallTrajectoryInitial;
+	updateBallPosition(collision);
+}
+
 //----------------------------------------------------------------------------
 
 void display( SDL_Window* screen ){
@@ -323,9 +340,7 @@ void input(SDL_Window* screen ){
 				std::cout<<"*new game*\n";
 				score[0]=0;
 				score[1]=0;
-				speedFactor=SpeedFactorInitial;
-				//need to reset ball position
-				//need to reset paddle positions
+				resetGame();
 				break;
 			}
 		}
